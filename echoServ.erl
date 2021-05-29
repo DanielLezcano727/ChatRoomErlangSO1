@@ -49,10 +49,13 @@ ingresarNickname(Sock) ->
 dedicatedListener(Sock, Name) ->
     case gen_tcp:recv(Sock, 0) of
         {ok, Paquete} ->
-            dedicatedListener(
-                Sock,
-                packet_decoder(string:split(filtrar_ceros(Paquete), " "), Name, Sock)
-            );
+            Temp = packet_decoder(string:split(filtrar_ceros(Paquete), " "), Name, Sock),
+            if 
+                Temp /= "" ->
+                    dedicatedListener(Sock, Temp);
+                true ->
+                    done
+            end;
         {error, closed} ->
             io:format("El cliente cerró la conexión~n")
 end.
@@ -73,7 +76,7 @@ packet_decoder(["/msg", Rest], Name, _Sock) ->
     Name;
 packet_decoder(["/exit"], Name, _Sock) -> 
     map_handler ! {del, Name},
-    Name;
+    "";
 packet_decoder(_Lista, Name, _Sock) -> 
     %io:format("Basura~n"),
     Name.
