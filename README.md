@@ -28,3 +28,14 @@ El mecanismo de cierre que implementamos tanto del lado del servidor como del cl
 - make
 - ./server PUERTO
 - ./cliente DIRECCION_IP PUERTO_DEL_SV
+
+
+### TO DO
+
+ - [ ] Manejo de excepciones y terminar amablemente el servidor.
+   - [ ] Acordarse de linkear los agentes para que cuando mueran, mueran de manera correcta
+   - [ ] Lanzar excepciones puede hacer que el codigo quede lindo
+   - [ ] Hay que manejar errores del SO? 
+ - [ ] Validacion del nickname
+ - [ ] Validacion maxima cantidad de usuarios
+ - [ ] Agregar al readme la documentacion de la utilizacion del cliente
