@@ -38,3 +38,4 @@ El mecanismo de cierre que implementamos tanto del lado del servidor como del cl
    - [ ] Hay que manejar errores del SO? 
  - [ ] Validacion del nickname
  - [ ] Validacion maxima cantidad de usuarios
+ - [ ] Agregar al readme la documentacion de la utilizacion del cliente
