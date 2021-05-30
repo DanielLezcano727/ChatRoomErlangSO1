@@ -1,4 +1,4 @@
--module(echoServ).
+-module(server).
 -define(Puerto, 1234).
 -export([start/0, fin/1, receptor/1, worker/1, sockets_map/1]).
 
