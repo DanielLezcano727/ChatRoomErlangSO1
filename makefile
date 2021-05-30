@@ -7,4 +7,4 @@ cliente.o: $(CLIENTES).c
 	gcc -o cliente $(CLIENTES).c $(FLAGS)
 
 clean:
-	rm cliente
+	rm cliente *.beam
