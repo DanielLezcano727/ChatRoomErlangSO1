@@ -3,8 +3,8 @@
 -export([start/0, fin/1, receptor/2, worker/1, sockets_map/2, close/0, show/0]).
 
 -define(MAX_NAMES, 30).
--define(MAX_LENGTH, 1000).
--define(MAX_CLIENTS, 2).
+-define(MAX_LENGTH, 1050).
+-define(MAX_CLIENTS, 25).
 
 start()->
     {ok, Sock} = gen_tcp:listen(?Puerto, [ list, {active, false}]),
@@ -48,7 +48,10 @@ worker(Sock) ->
     ingresarNickname(Sock),
     receive
         {ok, Name} -> dedicatedListener(Sock, Name);
-        {err} -> io:format("Ocurrio un error")
+        {err} -> 
+            io:format("Ocurrio un error"),
+            gen_tcp:close(Sock),
+            cliente_handler ! exit
     end.
 
 ingresarNickname(Sock) ->
