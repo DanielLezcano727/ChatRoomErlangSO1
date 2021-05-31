@@ -1,6 +1,6 @@
 -module(server).
 -define(Puerto, 1234).
--export([start/0, fin/1, receptor/2, worker/1, sockets_map/2, close/0]).
+-export([start/0, fin/1, receptor/2, worker/1, sockets_map/2, close/0, show/0]).
 
 -define(MAX_NAMES, 30).
 -define(MAX_LENGTH, 1000).
@@ -20,7 +20,7 @@ accept_clients(Sock) ->
     case gen_tcp:accept(Sock) of
         {ok, CSock}  ->
             io:format("LLegó un cliente~n"),
-            spawn_link(?MODULE, worker, [CSock]),
+            spawn(?MODULE, worker, [CSock]),
             1;
         {error, closed} ->
             io:format("Se cerró el closed, nos vamos a mimir~n"),
@@ -63,7 +63,7 @@ ingresarNickname(Sock) ->
                 err ->
                     ingresarNickname(Sock)
             end;
-        {error, closed} ->       % Este error creo que no lo estamos manejando 
+        {error, closed} -> 
             self() ! {err}
     end.
 
@@ -87,8 +87,6 @@ validation_used(Nick) ->
         _Other -> throw({err_used})
     end.
 
-% Considerar hacer una funcion send con el sock y que esa se encargue de enviar cosas al cliente
-% Verificar si es mejor directamente mandar el mensaje o devolverlo de la funcion
 validationsNickname(Sock, Nick) ->
     try
         validation_length(Nick),
@@ -151,9 +149,9 @@ packet_decoder(["/msg", Rest], Name, Sock) ->
                     gen_tcp:send(Sock, "Mensaje muy largo\0")
             end;
         [_To] ->
-            gen_tcp:send(Sock, "Falta mensaje\0"),
-        Name
-    end;
+            gen_tcp:send(Sock, "Falta mensaje\0")
+    end,
+    Name;
 packet_decoder(["/exit"], Name, _Sock) -> 
     map_handler ! {del, Name},
     cliente_handler ! exit,
@@ -175,8 +173,14 @@ sockets_map(SocksMap, Sock) ->
         {del, Nam} ->
             NewMap = maps:remove(Nam, SocksMap),
             sockets_map(NewMap, Sock);
+        {all} ->
+            lists:foreach(fun(X) -> io:format("~p~n",[X]) end, maps:keys(SocksMap)),
+            sockets_map(SocksMap, Sock);
         {rip} ->
             lists:foreach(fun(Socket) -> gen_tcp:send(Socket, "EXIT\0"), gen_tcp:close(Socket) end, maps:values(SocksMap)),
             gen_tcp:close(Sock)
     end,
     exit(normal).
+
+show() ->
+    map_handler ! {all}.
