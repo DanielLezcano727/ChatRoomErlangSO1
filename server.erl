@@ -1,6 +1,6 @@
 -module(server).
 -define(Puerto, 1234).
--export([start/0, fin/1, receptor/2, worker/1, sockets_map/1]).
+-export([start/0, fin/1, receptor/2, worker/1, sockets_map/1, close/0]).
 
 -define(MAX_NAMES, 30).
 -define(MAX_LENGTH, 1000).
@@ -29,6 +29,9 @@ accept_clients(Sock) ->
             io:format("Falló la espera del client por: ~p~n",[Reason]),
             0
     end.
+
+close() ->
+    map_handler ! {rip}.
 
 receptor(Sock, CantClientes) ->
     if
@@ -116,7 +119,8 @@ dedicatedListener(Sock, Name) ->
             end;
         {error, closed} ->
             io:format("El cliente cerró la conexion~n")
-end.
+    end,
+    exit(normal).
         
 filtrar_ceros([0 | _Tl]) -> [];
 filtrar_ceros([Hd | Tl]) -> [Hd] ++ filtrar_ceros(Tl).
@@ -170,5 +174,8 @@ sockets_map(SocksMap) ->
             sockets_map(SocksMap);
         {del, Nam} ->
             NewMap = maps:remove(Nam, SocksMap),
-            sockets_map(NewMap)
-    end.
+            sockets_map(NewMap);
+        {rip} ->
+            lists:foreach(fun(Sock) -> gen_tcp:send(Sock, "EXIT\0") end, maps:values(SocksMap))
+    end,
+    exit(normal).
