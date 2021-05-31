@@ -1,6 +1,6 @@
 -module(server).
 -define(Puerto, 1234).
--export([start/0, fin/1, receptor/2, worker/1, sockets_map/1, close/0]).
+-export([start/0, fin/1, receptor/2, worker/1, sockets_map/2, close/0]).
 
 -define(MAX_NAMES, 30).
 -define(MAX_LENGTH, 1000).
@@ -9,7 +9,7 @@
 start()->
     {ok, Sock} = gen_tcp:listen(?Puerto, [ list, {active, false}]),
     register(cliente_handler, spawn(?MODULE,receptor, [Sock, 0])),
-    register(map_handler, spawn(?MODULE, sockets_map, [maps:new()])),
+    register(map_handler, spawn(?MODULE, sockets_map, [maps:new(), Sock])),
     Sock.
 
 fin(Sock) ->
@@ -20,7 +20,7 @@ accept_clients(Sock) ->
     case gen_tcp:accept(Sock) of
         {ok, CSock}  ->
             io:format("LLegó un cliente~n"),
-            spawn(?MODULE, worker, [CSock]),
+            spawn_link(?MODULE, worker, [CSock]),
             1;
         {error, closed} ->
             io:format("Se cerró el closed, nos vamos a mimir~n"),
@@ -141,7 +141,7 @@ packet_decoder(["/msg", Rest], Name, Sock) ->
             gen_tcp:send(Sock, "Falta mensaje\0");
         [To, Msg] ->
             if
-                length(Msg) > ?MAX_LENGTH ->
+                length(Msg) < ?MAX_LENGTH ->
                     map_handler ! {get, To, self()},
                     receive
                         available -> gen_tcp:send(Sock, "Usuario inexistente\0");
@@ -161,21 +161,22 @@ packet_decoder(["/exit"], Name, _Sock) ->
 packet_decoder(_Lista, Name, _Sock) -> 
     Name.
 
-sockets_map(SocksMap) ->
+sockets_map(SocksMap, Sock) ->
     receive
         {reg, Sid, Nam} ->
             NewMap = maps:put(Nam, Sid, SocksMap),
-            sockets_map(NewMap);
+            sockets_map(NewMap, Sock);
         {upd, Nam, Sid, NewNam} ->
             NewMap = maps:put(NewNam, Sid, maps:remove(Nam, SocksMap)),
-            sockets_map(NewMap);
+            sockets_map(NewMap, Sock);
         {get, Nam, Pid} ->
             Pid ! maps:get(Nam, SocksMap, available),
-            sockets_map(SocksMap);
+            sockets_map(SocksMap, Sock);
         {del, Nam} ->
             NewMap = maps:remove(Nam, SocksMap),
-            sockets_map(NewMap);
+            sockets_map(NewMap, Sock);
         {rip} ->
-            lists:foreach(fun(Sock) -> gen_tcp:send(Sock, "EXIT\0") end, maps:values(SocksMap))
+            lists:foreach(fun(Socket) -> gen_tcp:send(Socket, "EXIT\0"), gen_tcp:close(Socket) end, maps:values(SocksMap)),
+            gen_tcp:close(Sock)
     end,
     exit(normal).
