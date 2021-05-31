@@ -6,6 +6,7 @@
 -define(MAX_LENGTH, 1000).
 -define(MAX_CLIENTS, 2).
 
+% start inicia el servidor
 start()->
     {ok, Sock} = gen_tcp:listen(?Puerto, [ list, {active, false}]),
     register(cliente_handler, spawn(?MODULE,receptor, [Sock, 0])),
@@ -16,6 +17,8 @@ fin(Sock) ->
     gen_tcp:close(Sock),
     ok.
 
+% accept_clients: Socket -> Nat
+% crea el worker que atiende al cliente y retorna un entero para contar al cliente
 accept_clients(Sock) -> 
     case gen_tcp:accept(Sock) of
         {ok, CSock}  ->
@@ -30,9 +33,12 @@ accept_clients(Sock) ->
             0
     end.
 
+% funcion dedicada para cerrar el programa
 close() ->
     map_handler ! {rip}.
 
+% receptor: Socket, Nat -> ...
+% encargada de escuchar las conexiones entrantes y aceptarlas 
 receptor(Sock, CantClientes) ->
     if
         CantClientes < ?MAX_CLIENTS ->
@@ -43,6 +49,8 @@ receptor(Sock, CantClientes) ->
             end
     end.
     
+% worker: Socket -> ...
+% proceso dedicado a atender las peticiones de los clientes
 worker(Sock) ->
     gen_tcp:send(Sock, "Ingrese su nickname: "),
     ingresarNickname(Sock),
@@ -51,6 +59,8 @@ worker(Sock) ->
         {err} -> io:format("Ocurrio un error")
     end.
 
+% ingresarNickname: Socket -> ...
+% funcion dedicada para el ingreso del primer nickname del cliente
 ingresarNickname(Sock) ->
     case gen_tcp:recv(Sock, 0) of
         {ok, Paq} ->
@@ -67,6 +77,8 @@ ingresarNickname(Sock) ->
             self() ! {err}
     end.
 
+% validation_length: String -> Atom
+% valida el largo para un nickname, si falla arroja error
 validation_length(Nick) ->
     if
         length(Nick) == 0 -> throw({err_empty});
@@ -74,12 +86,16 @@ validation_length(Nick) ->
         true -> ok
     end.
 
+% validation_alpha: String -> Atom
+% valida los caracteres para un nickname, si falla arroja error
 validation_alpha(Nick) ->
     case re:run(Nick, "^[0-9A-Za-z-]+$") of
         nomatch -> throw({err_alpha});
         {match, _inf} -> ok
     end.
 
+% validation_used: String -> Atom
+% valida la disponibilidad para un nickname, si falla arroja error
 validation_used(Nick) ->
     map_handler ! {get, Nick, self()},
     receive
@@ -87,6 +103,8 @@ validation_used(Nick) ->
         _Other -> throw({err_used})
     end.
 
+% validationsNickname: Socket, String -> Atom
+% ejecuta todas las validaciones para un nickname y devuelve el resultado
 validationsNickname(Sock, Nick) ->
     try
         validation_length(Nick),
@@ -108,6 +126,7 @@ validationsNickname(Sock, Nick) ->
             err
     end.
 
+% Hilo encargado de escuchar los mensajes de los clientes.
 dedicatedListener(Sock, Name) ->
     case gen_tcp:recv(Sock, 0) of
         {ok, Paquete} ->
@@ -120,9 +139,11 @@ dedicatedListener(Sock, Name) ->
     end,
     exit(normal).
         
+% Dado una lista devuelve la lista concatenada sin ceros
 filtrar_ceros([0 | _Tl]) -> [];
 filtrar_ceros([Hd | Tl]) -> [Hd] ++ filtrar_ceros(Tl).
 
+% Se encarga de ejecutar las acciones del cliente.
 packet_decoder(["/nickname", Rest], Name, Sock) ->
     case validationsNickname(Sock, Rest) of
         ok -> 
@@ -159,6 +180,10 @@ packet_decoder(["/exit"], Name, _Sock) ->
 packet_decoder(_Lista, Name, _Sock) -> 
     Name.
 
+% sockets_map: Map, Socket -> ...
+% Almacena los sockets de los clientes y los asocia con sus nicknames. 
+% Acepta mensajes para registrar y actualizar nicknames, obtener sockets, borrar sockets
+% y nicknames y cerrar las conexiones.
 sockets_map(SocksMap, Sock) ->
     receive
         {reg, Sid, Nam} ->
@@ -182,5 +207,6 @@ sockets_map(SocksMap, Sock) ->
     end,
     exit(normal).
 
+% Funcion para debug. Muestra los nombres de los usuarios conectados.
 show() ->
     map_handler ! {all}.

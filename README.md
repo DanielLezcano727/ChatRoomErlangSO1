@@ -1,41 +1,54 @@
 # Informe Ejercicio Semanal
 # Alumnos: Bolzan Francisco - Lezcano Daniel
 
-## Decisiones
+## Macros
 
-### Comunicación
+ - MAX_NAMES: Longitud maxima de los nicknames.
+ - MAX_LENGTH: Longitud maxima de los mensajes.
+ - MAX_CLIENTS: Cantidad maxima aceptada de clientes.
+ - Puerto: 1234
 
-La comunicación que decidimos implementar luego de la consulta del martes 11 de mayo fue en la que cada usuario puede comunicar a otro a través de
-`/msg nickname text` sin oportunidad de emitir mensajes broadcast.
+## Division en hilos
 
-### División de los trabajos del cliente
+Decidimos implementar que al ejecutar el comando start inicie dos hilos:
 
-Decidimos crear un hilo con `pthread_create`, el cual se encargue de leer lo que se reciba del servidor, y el programa principal que se encargue de leer la entrada del cliente y enviarla al servidor.
+ - cliente_handler: Es el encargado de escuchar nuevas conexiones con los clientes.
+ - map_handler: Almacena los sockets de los clientes en un map, y los asocia con sus nicknames como clave. Es utilizado para efectuar el mensajeo entre los clientes y para cerrar las conexiones con los clientes en caso de cerrar el servidor.
 
-### División de los trabajos del servidor
+cliente_handler al aceptar una conexion crea un hilo el cual se encargara de las peticiones del cliente.
 
-El servidor acepta hasta MAX_CLIENTS clientes (constante definida en el archivo del servidor) y para cada cliente se crea un nuevo hilo que se encargue de su respectiva comunicacion con el cliente. El programa principal estara a la espera de nuevas conexiones y les asignara un hilo a las entrantes.
+## IPC
 
-## Mecanismo de cierre
+Los procesos que se encargan de la comunicacion con el cliente se comunican con map_handler a la hora de registrar y actualizar sus nicknames, obtener un socket dado un nickname y al borrar su socket de la lista y con cliente_handler a la hora de irse el cliente.
 
-El mecanismo de cierre que implementamos tanto del lado del servidor como del cliente es la captura de la señal SIGINT.
+cliente_handler sumara a su estado la cantidad de clientes y en caso de llegar al maximo quedara a la espera de que alguno de los hilos encargados de los clientes le envie un mensaje exit.
 
- - En el caso del cliente, al finalizar con esta señal le enviara al servidor un mensaje de exit y saldra del programa
- - En el caso del servidor, le enviara a cada uno de los clientes un mensaje de finalizacion, para los cuales los clientes deberan finalizar el programa
+A la hora de cerrar el servidor, map_handler cerrara los sockets de los clientes y el del servidor, causando el cierre de los hilos.
 
 ## Ejecucion del programa
+
+### cliente
+
+Para iniciar el cliente:
 
 - make
 - ./server PUERTO
 - ./cliente DIRECCION_IP PUERTO_DEL_SV
 
+Para cerrar el cliente puede utilizarse ctrl c.
 
-### TO DO
+### Servidor
 
- - [ ] Manejo de excepciones y terminar amablemente el servidor.
-   - [ ] Acordarse de linkear los agentes para que cuando mueran, mueran de manera correcta
-   - [ ] Lanzar excepciones puede hacer que el codigo quede lindo
-   - [ ] Hay que manejar errores del SO? 
- - [ ] Validacion del nickname
- - [ ] Validacion maxima cantidad de usuarios
- - [ ] Agregar al readme la documentacion de la utilizacion del cliente
+Para iniciar el servidor:
+
+- erl
+- c(server).
+- server:start().
+
+Para cerrar el servidor:
+
+ - server:close().
+
+Funciones adicionales:
+
+ - server:show(). (Muestra la lista de claves/nicknames registrados)
